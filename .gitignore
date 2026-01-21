@@ -1,0 +1,6 @@
+# Raw datasets (do not commit)
+data/raw/
+
+# Python cache
+__pycache__/
+*.pyc
