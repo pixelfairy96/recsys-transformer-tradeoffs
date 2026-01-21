@@ -1,0 +1,16 @@
+# Configuration for SASRec on MovieLens-1M
+# Phase 1: placeholder values only
+
+dataset:
+  name: movielens-1m
+  sequence_length: 50
+
+model:
+  name: sasrec
+
+training:
+  batch_size: 128
+  max_epochs: 10
+
+evaluation:
+  k: [10, 20]
