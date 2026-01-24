@@ -82,6 +82,20 @@ def main(config_path):
             max_seq_len=config["dataset"]["max_seq_len"],
         ).to(device)
 
+    elif model_name == "tisasrec":
+        from models.tisasrec import TiSASRec
+
+        model = TiSASRec(
+            num_items=dataset.num_items,
+            hidden_size=config["model"]["hidden_size"],
+            num_layers=config["model"]["num_layers"],
+            num_heads=config["model"]["num_heads"],
+            dropout=config["model"]["dropout"],
+            max_seq_len=config["dataset"]["max_seq_len"],
+            num_time_bins=config["model"]["num_time_bins"],
+        ).to(device)
+
+
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
