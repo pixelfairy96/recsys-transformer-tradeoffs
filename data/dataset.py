@@ -10,7 +10,7 @@ class SequentialDataset:
             config (dict): dataset-related configuration
         """
         self.dataset_name = config["dataset"]["name"]
-        self.sequence_length = config["dataset"]["sequence_length"]
+        self.sequence_length = config["dataset"]["max_seq_len"]
 
         if self.dataset_name != "movielens-1m":
             raise ValueError(f"Unsupported dataset: {self.dataset_name}")
