@@ -7,10 +7,16 @@ dataset:
 
 model:
   name: sasrec
+  hidden_size: 64
+  num_layers: 2
+  num_heads: 2
+  dropout: 0.2
 
 training:
   batch_size: 128
   max_epochs: 10
+  learning_rate: 0.001
 
 evaluation:
   k: [10, 20]
+  inference_batch_size: 32
