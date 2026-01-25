@@ -7,6 +7,7 @@ from data.dataset import SequentialDataset
 from models.sasrec import SASRec
 from models.bert4rec import BERT4Rec
 from models.tisasrec import TiSASRec
+from models.linear_sasrec import LinearSASRec
 
 
 def load_model_and_data(config_path, device):
@@ -48,6 +49,16 @@ def load_model_and_data(config_path, device):
             num_time_bins=config["model"]["num_time_bins"],
         )
 
+    elif model_name == "linear_sasrec":
+        model = LinearSASRec(
+            num_items=dataset.num_items,
+            hidden_size=config["model"]["hidden_size"],
+            num_layers=config["model"]["num_layers"],
+            num_heads=config["model"]["num_heads"],
+            dropout=config["model"]["dropout"],
+            max_seq_len=config["dataset"]["max_seq_len"],
+        )
+
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -60,13 +71,7 @@ def load_model_and_data(config_path, device):
 def make_batches(data, batch_size):
     for i in range(0, len(data), batch_size):
         batch = data[i:i + batch_size]
-        cols = list(zip(*batch))
-
-        tensors = []
-        for col in cols:
-            tensors.append(torch.tensor(col, dtype=torch.long))
-
-        yield tuple(tensors)
+        yield tuple(torch.tensor(col, dtype=torch.long) for col in zip(*batch))
 
 
 @torch.no_grad()
@@ -77,17 +82,19 @@ def main(config_path):
     batch_size = config["evaluation"]["inference_batch_size"]
 
     batches = list(make_batches(data, batch_size))
+    model_name = model.__class__.__name__
 
     # -----------------------------
     # Warm-up
     # -----------------------------
     for _ in range(5):
         batch = batches[0]
-        if len(batch) == 3:
+
+        if model_name == "TiSASRec":
             seqs, times, _ = batch
             model(seqs.to(device), times.to(device))
         else:
-            seqs, _ = batch
+            seqs = batch[0]
             model(seqs.to(device))
 
     # -----------------------------
@@ -104,11 +111,11 @@ def main(config_path):
     for batch in batches:
         t0 = time.time()
 
-        if len(batch) == 3:
+        if model_name == "TiSASRec":
             seqs, times, _ = batch
             model(seqs.to(device), times.to(device))
         else:
-            seqs, _ = batch
+            seqs = batch[0]
             model(seqs.to(device))
 
         if torch.cuda.is_available():

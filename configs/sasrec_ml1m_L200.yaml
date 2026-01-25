@@ -1,7 +1,7 @@
 dataset:
   name: movielens-1m
   data_path: data/raw/ml-1m/ratings.dat
-  max_seq_len: 50
+  max_seq_len: 200
 
 model:
   name: sasrec

@@ -21,7 +21,7 @@ def train_one_epoch(model, data, optimizer, device, batch_size):
         # -----------------------------
         # Unpack batch
         # -----------------------------
-        if len(batch) == 3:
+        if isinstance(model, torch.nn.Module) and model.__class__.__name__ == "TiSASRec":
             # TiSASRec: (seqs, times, targets)
             seqs, times, targets = batch
             seqs = seqs.to(device)
@@ -29,8 +29,12 @@ def train_one_epoch(model, data, optimizer, device, batch_size):
             targets = targets.to(device)
             logits = model(seqs, times)
         else:
-            # SASRec / BERT4Rec: (seqs, targets)
-            seqs, targets = batch
+            if len(batch) == 3:
+                seqs, _, targets = batch  # ignore time
+            else:
+                # SASRec / BERT4Rec: (seqs, targets)
+                seqs, targets = batch
+
             seqs = seqs.to(device)
             targets = targets.to(device)
             logits = model(seqs)
@@ -60,16 +64,18 @@ def evaluate(model, data, device, batch_size):
     total = 0
 
     for batch in _batch_iter(data, batch_size):
-        if len(batch) == 3:
-            # TiSASRec
+        if isinstance(model, torch.nn.Module) and model.__class__.__name__ == "TiSASRec":
             seqs, times, targets = batch
             seqs = seqs.to(device)
             times = times.to(device)
             targets = targets.to(device)
             logits = model(seqs, times)
         else:
-            # SASRec / BERT4Rec
-            seqs, targets = batch
+            if len(batch) == 3:
+                seqs, _, targets = batch  # ignore time
+            else:
+                seqs, targets = batch
+
             seqs = seqs.to(device)
             targets = targets.to(device)
             logits = model(seqs)

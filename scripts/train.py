@@ -95,6 +95,16 @@ def main(config_path):
             num_time_bins=config["model"]["num_time_bins"],
         ).to(device)
 
+    elif model_name == "linear_sasrec":
+        from models.linear_sasrec import LinearSASRec
+        model = LinearSASRec(
+            num_items=dataset.num_items,
+            hidden_size=config["model"]["hidden_size"],
+            num_layers=config["model"]["num_layers"],
+            num_heads=config["model"]["num_heads"],
+            dropout=config["model"]["dropout"],
+            max_seq_len=config["dataset"]["max_seq_len"],
+        ).to(device)
 
     else:
         raise ValueError(f"Unknown model name: {model_name}")

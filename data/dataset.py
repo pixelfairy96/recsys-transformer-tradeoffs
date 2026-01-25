@@ -1,79 +1,100 @@
-import os
-from collections import defaultdict
 import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+from collections import defaultdict
 
 
 class SequentialDataset:
     def __init__(self, config):
-        """
-        Args:
-            config (dict): dataset-related configuration
-        """
-        self.dataset_name = config["dataset"]["name"]
-        self.sequence_length = config["dataset"]["max_seq_len"]
+        self.config = config
+        self.data_path = config["dataset"]["data_path"]
+        self.max_seq_len = config["dataset"]["max_seq_len"]
+        self.num_time_bins = config["dataset"].get("num_time_bins", 50)
 
-        if self.dataset_name != "movielens-1m":
-            raise ValueError(f"Unsupported dataset: {self.dataset_name}")
-
-        self.data_dir = "data/raw/ml-1m"
         self._load_data()
         self._build_sequences()
 
     def _load_data(self):
-        ratings_file = os.path.join(self.data_dir, "ratings.dat")
-        if not os.path.exists(ratings_file):
-            raise FileNotFoundError(f"Missing file: {ratings_file}")
-
         user_interactions = defaultdict(list)
+        all_items = set()
 
-        with open(ratings_file, "r") as f:
+        with open(self.data_path, "r") as f:
             for line in f:
-                user_id, item_id, _, timestamp = line.strip().split("::")
-                user_interactions[int(user_id)].append(
-                    (int(item_id), int(timestamp))
-                )
+                user, item, rating, timestamp = line.strip().split("::")
+                user = int(user)
+                item = int(item)
+                timestamp = int(timestamp)
 
-        # sort interactions by time
-        for user in user_interactions:
-            user_interactions[user].sort(key=lambda x: x[1])
+                user_interactions[user].append((item, timestamp))
+                all_items.add(item)
 
-        self.user_sequences = {
-            user: [item for item, _ in interactions]
-            for user, interactions in user_interactions.items()
-            if len(interactions) >= 3
-        }
+        self.user_interactions = user_interactions
+        self.num_items = max(all_items) + 1
+
+    def _discretize_time_diffs(self, diffs):
+        diffs = np.array(diffs)
+        diffs = np.clip(diffs, 0, diffs.max() if diffs.max() > 0 else 1)
+        bins = np.linspace(0, diffs.max() + 1, self.num_time_bins)
+        return np.digitize(diffs, bins)
 
     def _build_sequences(self):
         self.train_data = []
         self.val_data = []
-        self.test_data = []
 
-        all_items = set()
+        for user, interactions in self.user_interactions.items():
+            interactions.sort(key=lambda x: x[1])
 
-        for user, seq in self.user_sequences.items():
-            all_items.update(seq)
+            items = [x[0] for x in interactions]
+            times = [x[1] for x in interactions]
 
-            train_seq = seq[:-2]
-            val_item = seq[-2]
-            test_item = seq[-1]
+            if len(items) < 2:
+                continue
 
-            train_seq = train_seq[-self.sequence_length :]
+            time_diffs = [0]
+            for i in range(1, len(times)):
+                time_diffs.append(times[i] - times[i - 1])
 
-            self.train_data.append((train_seq, val_item))
-            self.val_data.append((train_seq, val_item))
-            self.test_data.append((train_seq, test_item))
+            time_bins = self._discretize_time_diffs(time_diffs).tolist()
 
-        self.num_items_value = max(all_items) + 1  # padding index = 0
+            for i in range(1, len(items)):
+                seq_items = items[:i]
+                seq_times = time_bins[:i]
+                target = items[i]
+
+                seq_items = seq_items[-self.max_seq_len:]
+                seq_times = seq_times[-self.max_seq_len:]
+
+                pad_len = self.max_seq_len - len(seq_items)
+                seq_items = [0] * pad_len + seq_items
+                seq_times = [0] * pad_len + seq_times
+
+                self.train_data.append(
+                    (seq_items, seq_times, target)
+                )
+
+            # last interaction for validation
+            self.val_data.append(
+                (seq_items, seq_times, target)
+            )
+
+    def _make_loader(self, data, batch_size, shuffle):
+        return DataLoader(
+            data,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            collate_fn=self._collate_fn,
+        )
+
+    def _collate_fn(self, batch):
+        seqs, times, targets = zip(*batch)
+        return (
+            torch.tensor(seqs, dtype=torch.long),
+            torch.tensor(times, dtype=torch.long),
+            torch.tensor(targets, dtype=torch.long),
+        )
 
     def get_train_data(self):
         return self.train_data
 
     def get_validation_data(self):
         return self.val_data
-
-    def get_test_data(self):
-        return self.test_data
-
-    @property
-    def num_items(self):
-        return self.num_items_value

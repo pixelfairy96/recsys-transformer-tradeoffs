@@ -1,10 +1,10 @@
 dataset:
   name: movielens-1m
   data_path: data/raw/ml-1m/ratings.dat
-  max_seq_len: 50
+  max_seq_len: 200
 
 model:
-  name: sasrec
+  name: linear_sasrec
   hidden_size: 64
   num_layers: 2
   num_heads: 2
@@ -13,7 +13,7 @@ model:
 training:
   batch_size: 128
   lr: 0.001
-  max_epochs: 10
+  max_epochs: 5
 
 evaluation:
   k: [10, 20]
