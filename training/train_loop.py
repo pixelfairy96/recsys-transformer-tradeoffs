@@ -1,6 +1,7 @@
 import time
 import torch
 import torch.nn as nn
+from training.metrics import evaluate_ndcg
 
 
 def train_one_epoch(model, data, optimizer, device, batch_size):
@@ -21,18 +22,18 @@ def train_one_epoch(model, data, optimizer, device, batch_size):
         # -----------------------------
         # Unpack batch
         # -----------------------------
-        if isinstance(model, torch.nn.Module) and model.__class__.__name__ == "TiSASRec":
-            # TiSASRec: (seqs, times, targets)
+        if model.__class__.__name__ == "TiSASRec":
+            # (seqs, times, targets)
             seqs, times, targets = batch
             seqs = seqs.to(device)
             times = times.to(device)
             targets = targets.to(device)
             logits = model(seqs, times)
         else:
+            # (seqs, targets) or (seqs, _, targets)
             if len(batch) == 3:
-                seqs, _, targets = batch  # ignore time
+                seqs, _, targets = batch
             else:
-                # SASRec / BERT4Rec: (seqs, targets)
                 seqs, targets = batch
 
             seqs = seqs.to(device)
@@ -57,43 +58,24 @@ def train_one_epoch(model, data, optimizer, device, batch_size):
 
 
 @torch.no_grad()
-def evaluate(model, data, device, batch_size):
+def evaluate(model, data, device, batch_size, k=10):
+    """
+    Proper ranking evaluation.
+    Returns NDCG@k.
+    """
     model.eval()
-
-    correct = 0
-    total = 0
-
-    for batch in _batch_iter(data, batch_size):
-        if isinstance(model, torch.nn.Module) and model.__class__.__name__ == "TiSASRec":
-            seqs, times, targets = batch
-            seqs = seqs.to(device)
-            times = times.to(device)
-            targets = targets.to(device)
-            logits = model(seqs, times)
-        else:
-            if len(batch) == 3:
-                seqs, _, targets = batch  # ignore time
-            else:
-                seqs, targets = batch
-
-            seqs = seqs.to(device)
-            targets = targets.to(device)
-            logits = model(seqs)
-
-        preds = torch.argmax(logits, dim=1)
-        correct += (preds == targets).sum().item()
-        total += targets.size(0)
-
-    return correct / total if total > 0 else 0.0
+    return evaluate_ndcg(model, data, device, batch_size, k=k)
 
 
 def _batch_iter(data, batch_size):
     """
     data elements:
-      - SASRec / BERT4Rec: (seq_list, target)
-      - TiSASRec: (seq_list, time_list, target)
+      - SASRec / BERT4Rec:
+          (seq_list, target)
+      - TiSASRec:
+          (seq_list, time_list, target)
 
-    This function converts lists -> tensors explicitly.
+    Converts lists -> tensors.
     """
     for i in range(0, len(data), batch_size):
         batch = data[i:i + batch_size]
@@ -101,10 +83,6 @@ def _batch_iter(data, batch_size):
 
         tensors = []
         for col in cols:
-            # col is a tuple of lists or ints
-            if isinstance(col[0], list):
-                tensors.append(torch.tensor(col, dtype=torch.long))
-            else:
-                tensors.append(torch.tensor(col, dtype=torch.long))
+            tensors.append(torch.tensor(col, dtype=torch.long))
 
         yield tuple(tensors)
