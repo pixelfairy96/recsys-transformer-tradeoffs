@@ -58,13 +58,14 @@ def train_one_epoch(model, data, optimizer, device, batch_size):
 
 
 @torch.no_grad()
-def evaluate(model, data, device, batch_size, k=10):
+def evaluate(model, data, device, batch_size):
     """
     Proper ranking evaluation.
-    Returns NDCG@k.
+    Returns NDCG@10.
     """
     model.eval()
-    return evaluate_ndcg(model, data, device, batch_size, k=k)
+    return evaluate_ndcg(model, data, device, batch_size)
+
 
 
 def _batch_iter(data, batch_size):

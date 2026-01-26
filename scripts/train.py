@@ -164,7 +164,7 @@ def main(config_path):
             f"train loss = {train_loss:.4f}, "
             f"time = {epoch_time:.2f}s, "
             f"peak_mem = {peak_mem:.1f} MB, "
-            f"val_acc = {val_acc:.4f}"
+            f"val_ndcg@10 = {val_acc:.4f}"
         )
 
     # -----------------------------
