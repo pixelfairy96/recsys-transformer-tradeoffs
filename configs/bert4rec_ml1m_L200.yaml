@@ -1,0 +1,21 @@
+dataset:
+  name: movielens-1m
+  data_path: data/raw/ml-1m/ratings.dat
+  max_seq_len: 200
+
+model:
+  name: bert4rec
+  hidden_size: 64
+  num_layers: 2
+  num_heads: 2
+  dropout: 0.2
+
+training:
+  batch_size: 128
+  lr: 0.001
+  max_epochs: 5
+
+evaluation:
+  k: [10, 20]
+  inference_batch_size: 32
+
